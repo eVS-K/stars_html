@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TRIANGULAR FIELD : SYNTH — SHOCK LAB</title>
+
+<style>
+  :root {
+    --panel-bg: rgba(8, 12, 20, .80);
+    --panel-border: rgba(220, 232, 255, .12);
+    --panel-text: rgba(238, 244, 255, .88);
+    --muted: rgba(225, 235, 255, .48);
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #080b12;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  canvas {
+    display: block;
+  }
+
+  #panel {
+    position: fixed;
+    left: 14px;
+    top: 14px;
+    width: min(310px, calc(100vw - 28px));
+    max-height: calc(100vh - 28px);
+    overflow: auto;
+    box-sizing: border-box;
+    padding: 13px 13px 14px;
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    background: rgba(8, 12, 20, .94);
+    color: var(--panel-text);
+    /* Live backdrop-filter was visually subtle but surprisingly expensive on an animated canvas. */
+    box-shadow: 0 10px 42px rgba(0,0,0,.26);
+    z-index: 20;
+  }
+
+  #panel.hidden {
+    display: none;
+  }
+
+  .title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    margin: 2px 2px 11px;
+  }
+
+  .sub {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: .08em;
+    margin: -6px 2px 12px;
+  }
+
+  .section {
+    padding-top: 11px;
+    margin-top: 10px;
+    border-top: 1px solid rgba(255,255,255,.08);
+  }
+
+  .section:first-of-type {
+    padding-top: 0;
+    margin-top: 0;
+    border-top: none;
+  }
+
+  .section-name {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: rgba(225,235,255,.58);
+    margin: 0 1px 8px;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 96px;
+    gap: 10px;
+    align-items: center;
+    margin: 7px 0;
+  }
+
+  .row label {
+    font-size: 11px;
+    color: rgba(240,245,255,.78);
+  }
+
+  .row output {
+    font-size: 10px;
+    color: rgba(224,236,255,.55);
+    margin-left: 5px;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: #b8c8ff;
+  }
+
+  select, button {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid rgba(255,255,255,.11);
+    border-radius: 8px;
+    background: rgba(255,255,255,.055);
+    color: rgba(245,248,255,.90);
+    font: inherit;
+    font-size: 11px;
+    padding: 6px 8px;
+    outline: none;
+  }
+
+  option {
+    color: #111;
+  }
+
+  button {
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+  }
+
+  button:hover {
+    background: rgba(255,255,255,.10);
+    border-color: rgba(255,255,255,.18);
+  }
+
+  .button-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    margin-top: 7px;
+  }
+
+  .check {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 7px 0;
+    font-size: 11px;
+    color: rgba(240,245,255,.78);
+  }
+
+  .hint {
+    position: fixed;
+    right: 16px;
+    bottom: 13px;
+    z-index: 10;
+    color: rgba(235,242,255,.34);
+    font-size: 11px;
+    letter-spacing: .08em;
+    user-select: none;
+    pointer-events: none;
+  }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/p5@1.11.1/lib/p5.min.js"></script>
+</head>
+
+<body>
+
+<div id="panel">
+  <div class="title">TRIANGULAR FIELD / SYNTH</div>
+  <div class="sub">GEOMETRIC FIELD INSTRUMENT · OPTIMIZED SHOCK LAB</div>
+
+  <div class="section">
+    <div class="section-name">Preset</div>
+    <div class="row">
+      <label>Preset</label>
+      <select id="preset">
+        <option value="quiet">Quiet</option>
+        <option value="crystal">Crystal</option>
+        <option value="mesh">Mesh</option>
+        <option value="storm">Storm</option>
+        <option value="void">Void</option>
+      </select>
+    </div>
+    <div class="button-grid">
+      <button id="randomize">Randomize</button>
+      <button id="reset">Reset seed</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-name">Geometry</div>
+
+    <div class="row">
+      <label>Triangle size <output id="sizeOut"></output></label>
+      <input id="size" type="range" min="18" max="64" step="1">
+    </div>
+
+    <div class="row">
+      <label>Overlap <output id="overlapOut"></output></label>
+      <input id="overlap" type="range" min="0.65" max="1.60" step="0.01">
+    </div>
+
+    <div class="row">
+      <label>Apex / shape <output id="apexOut"></output></label>
+      <input id="apex" type="range" min="0.45" max="1.75" step="0.01">
+    </div>
+
+    <div class="row">
+      <label>Width <output id="widthOut"></output></label>
+      <input id="triWidth" type="range" min="0.55" max="1.55" step="0.01">
+    </div>
+
+    <div class="row">
+      <label>Base scale <output id="baseScaleOut"></output></label>
+      <input id="baseScale" type="range" min="0.20" max="1.30" step="0.01">
+    </div>
+
+    <div class="row">
+      <label>Rotation <output id="rotationOut"></output></label>
+      <input id="rotation" type="range" min="0" max="1.50" step="0.01">
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-name">Propagation</div>
+
+    <div class="row">
+      <label>Mode</label>
+      <select id="mode">
+        <option value="mixed">Mixed</option>
+        <option value="radial">Radial</option>
+        <option value="planar">Planar</option>
+        <option value="spiral">Spiral</option>
+        <option value="hex">Hexagonal</option>
+        <option value="noise">Noise field</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <label>Amplitude <output id="amplitudeOut"></output></label>
+      <input id="amplitude" type="range" min="0" max="2.00" step="0.01">
+    </div>
+
+    <div class="row">
+      <label>Speed <output id="speedOut"></output></label>
+      <input id="speed" type="range" min="0" max="2.50" step="0.01">
+    </div>
+
+    <div class="row">
+      <label>Frequency <output id="frequencyOut"></output></label>
+      <input id="frequency" type="range" min="0.20" max="2.80" step="0.01">
+    </div>
+
+    <div class="row">
+      <label>Noise <output id="noiseAmtOut"></output></label>
+      <input id="noiseAmt" type="range" min="0" max="1.00" step="0.01">
+    </div>
+
+    <div class="row">
+      <label>Flow <output id="flowOut"></output></label>
+      <input id="flow" type="range" min="0" max="1.00" step="0.01">
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-name">Interaction / Shock</div>
+
+    <div class="row">
+      <label>Mouse force <output id="mouseForceOut"></output></label>
+      <input id="mouseForce" type="range" min="0" max="3.00" step="0.01">
+    </div>
+
+    <div class="row">
+      <label>Mouse radius <output id="mouseRadiusOut"></output></label>
+      <input id="mouseRadius" type="range" min="40" max="340" step="1">
+    </div>
+
+    <div class="row">
+      <label>Initial motion</label>
+      <select id="shockInitial">
+        <option value="burst">Burst</option>
+        <option value="implode">Implode</option>
+        <option value="twist">Twist</option>
+        <option value="shear">Shear</option>
+        <option value="pinch">Pinch</option>
+        <option value="fracture">Fracture</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <label>Propagation</label>
+      <select id="shockPropagation">
+        <option value="ring">Ring</option>
+        <option value="ripple">Ripple</option>
+        <option value="spiral">Spiral</option>
+        <option value="tri">Tri-lobed</option>
+        <option value="hex">Hex-lobed</option>
+        <option value="directional">Directional</option>
+        <option value="echo">Echo</option>
+        <option value="viscous">Viscous tail</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <label>Propagation quirk <output id="shockQuirkOut"></output></label>
+      <input id="shockQuirk" type="range" min="0" max="1.80" step="0.01">
+    </div>
+
+    <div class="row">
+      <label>Shock power <output id="shockPowerOut"></output></label>
+      <input id="shockPower" type="range" min="0.2" max="5.0" step="0.05">
+    </div>
+
+    <div class="row">
+      <label>Shock speed <output id="shockSpeedOut"></output></label>
+      <input id="shockSpeed" type="range" min="60" max="500" step="1">
+    </div>
+
+    <div class="row">
+      <label>Shock width <output id="shockWidthOut"></output></label>
+      <input id="shockWidth" type="range" min="20" max="180" step="1">
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-name">Appearance</div>
+
+    <div class="row">
+      <label>Hue <output id="hueOut"></output></label>
+      <input id="hue" type="range" min="170" max="310" step="1">
+    </div>
+
+    <div class="row">
+      <label>Saturation <output id="saturationOut"></output></label>
+      <input id="saturation" type="range" min="0" max="100" step="1">
+    </div>
+
+    <div class="row">
+      <label>Brightness <output id="brightnessOut"></output></label>
+      <input id="brightness" type="range" min="20" max="100" step="1">
+    </div>
+
+    <div class="row">
+      <label>Line alpha <output id="lineAlphaOut"></output></label>
+      <input id="lineAlpha" type="range" min="10" max="255" step="1">
+    </div>
+
+    <div class="row">
+      <label>Fill alpha <output id="fillAlphaOut"></output></label>
+      <input id="fillAlpha" type="range" min="0" max="180" step="1">
+    </div>
+
+    <div class="check">
+      <span>Ghost triangles</span>
+      <input id="ghosts" type="checkbox">
+    </div>
+
+    <div class="check">
+      <span>Connection lines</span>
+      <input id="connections" type="checkbox">
+    </div>
+
+    <div class="check">
+      <span>Macro geometry</span>
+      <input id="macro" type="checkbox">
+    </div>
+
+    <div class="check">
+      <span>Background breathing</span>
+      <input id="bgBreathing" type="checkbox">
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-name">Performance</div>
+    <div class="check">
+      <span>Adaptive compute</span>
+      <input id="adaptiveCompute" type="checkbox">
+    </div>
+    <div class="check">
+      <span>Engine</span>
+      <span id="perfReadout" style="color:rgba(225,235,255,.55);font-size:10px">—</span>
+    </div>
+  </div>
+</div>
+
+<div class="hint">P panel · S save · SPACE pulse · R reseed · click shock · initial + propagation are independent</div>
+
+<script>
+let cells = [];
+let impulses = [];
+let t = 0;
+let mouseEnergy = 0;
+let fieldSeed = 1;
+let impulseId = 0;
+
+// Expensive passive-field math is staggered across frames, while drawing and
+// interaction stay at full frame rate. This preserves motion quality but cuts
+// the dominant CPU cost substantially.
+const perfState = {
+  avgDt: 16.7,
+  passiveStride: 2,
+  noiseStride: 6,
+  lastLabelFrame: 0
+};
+
+// Browser-level pointer state.
+// Do not rely on p5 mouseX/pmouseX because an overlaid control panel can
+// interfere with p5's mouse bookkeeping in some browsers.
+const pointerState = {
+  x: -10000,
+  y: -10000,
+  px: -10000,
+  py: -10000,
+  motion: 0,
+  vx: 0,
+  vy: 0,
+  inside: false
+};
+let controls = {};
+let cfg = {};
+
+const presets = {
+  quiet: {
+    size: 35, overlap: 1.18, apex: 1.00, triWidth: 1.00,
+    baseScale: 0.60, rotation: 0.28,
+    mode: "mixed", amplitude: 0.34, speed: 0.52, frequency: 1.00,
+    noiseAmt: 0.16, flow: 0.15,
+    mouseForce: 1.20, mouseRadius: 150,
+    shockInitial: "burst", shockPropagation: "ring", shockQuirk: 0.35,
+    shockPower: 2.8, shockSpeed: 225, shockWidth: 72,
+    adaptiveCompute: true,
+    hue: 215, saturation: 24, brightness: 84,
+    lineAlpha: 125, fillAlpha: 58,
+    ghosts: true, connections: true, macro: true, bgBreathing: true
+  },
+
+  crystal: {
+    size: 31, overlap: 1.32, apex: 1.18, triWidth: 0.88,
+    baseScale: 0.66, rotation: 0.48,
+    mode: "hex", amplitude: 0.72, speed: 0.68, frequency: 1.36,
+    noiseAmt: 0.08, flow: 0.10,
+    mouseForce: 1.55, mouseRadius: 135,
+    shockInitial: "pinch", shockPropagation: "hex", shockQuirk: 0.90,
+    shockPower: 3.0, shockSpeed: 250, shockWidth: 62,
+    adaptiveCompute: true,
+    hue: 202, saturation: 28, brightness: 92,
+    lineAlpha: 155, fillAlpha: 42,
+    ghosts: true, connections: true, macro: true, bgBreathing: false
+  },
+
+  mesh: {
+    size: 38, overlap: 1.42, apex: 0.78, triWidth: 1.18,
+    baseScale: 0.76, rotation: 0.20,
+    mode: "planar", amplitude: 0.52, speed: 0.44, frequency: 0.80,
+    noiseAmt: 0.22, flow: 0.22,
+    mouseForce: 1.25, mouseRadius: 185,
+    shockInitial: "shear", shockPropagation: "directional", shockQuirk: 0.70,
+    shockPower: 2.5, shockSpeed: 185, shockWidth: 95,
+    adaptiveCompute: true,
+    hue: 228, saturation: 18, brightness: 78,
+    lineAlpha: 118, fillAlpha: 32,
+    ghosts: true, connections: true, macro: false, bgBreathing: true
+  },
+
+  storm: {
+    size: 28, overlap: 1.16, apex: 1.25, triWidth: 0.92,
+    baseScale: 0.56, rotation: 1.08,
+    mode: "spiral", amplitude: 1.28, speed: 1.45, frequency: 1.62,
+    noiseAmt: 0.46, flow: 0.62,
+    mouseForce: 2.15, mouseRadius: 178,
+    shockInitial: "twist", shockPropagation: "spiral", shockQuirk: 1.25,
+    shockPower: 3.5, shockSpeed: 330, shockWidth: 80,
+    adaptiveCompute: true,
+    hue: 245, saturation: 42, brightness: 92,
+    lineAlpha: 170, fillAlpha: 62,
+    ghosts: true, connections: true, macro: true, bgBreathing: true
+  },
+
+  void: {
+    size: 43, overlap: 1.38, apex: 1.42, triWidth: 0.72,
+    baseScale: 0.68, rotation: 0.62,
+    mode: "radial", amplitude: 0.48, speed: 0.28, frequency: 0.56,
+    noiseAmt: 0.34, flow: 0.28,
+    mouseForce: 1.70, mouseRadius: 235,
+    shockInitial: "implode", shockPropagation: "echo", shockQuirk: 1.00,
+    shockPower: 3.0, shockSpeed: 155, shockWidth: 125,
+    adaptiveCompute: true,
+    hue: 282, saturation: 28, brightness: 66,
+    lineAlpha: 105, fillAlpha: 42,
+    ghosts: true, connections: false, macro: true, bgBreathing: false
+  }
+};
+
+class Cell {
+  constructor(x, y, up, gx, gy) {
+    this.x = x;
+    this.y = y;
+    this.up = up;
+    this.gx = gx;
+    this.gy = gy;
+    this.seed = random(1000);
+
+    this.energy = 0;
+    this.target = 0;
+    this.angle = up ? 0 : PI;
+    this.scaleNow = cfg.baseScale;
+
+    this.pushX = 0;
+    this.pushY = 0;
+    this.pushXTarget = 0;
+    this.pushYTarget = 0;
+    this.interaction = 0;
+    this.interactionTarget = 0;
+
+    // Passive field is intentionally decoupled from the full-rate interaction.
+    this.passiveField = 0;
+    this.passiveTarget = 0;
+    this.noiseValue = 0;
+    this.noiseTarget = 0;
+    this.flowValue = 0;
+    this.flowTarget = 0;
+    this.computePhase = abs((gx * 17 + gy * 31) | 0);
+
+    // Width/height only change on rebuild, so these expensive polar values are static.
+    const dx = x - width * 0.5;
+    const dy = y - height * 0.5;
+    this.centerD = Math.sqrt(dx * dx + dy * dy);
+    this.centerA = Math.atan2(dy, dx);
+    this.cos3A = Math.cos(this.centerA * 3);
+    this.sin3A = Math.sin(this.centerA * 3);
+    this.cos6A = Math.cos(this.centerA * 6);
+    this.sin6A = Math.sin(this.centerA * 6);
+  }
+
+  computePassiveField() {
+    const f = cfg.frequency;
+    const sp = cfg.speed;
+    const d = this.centerD;
+    let field = 0;
+
+    if (cfg.mode === "radial") {
+      field = Math.sin(d * 0.026 * f - t * 1.15 * sp);
+    }
+
+    else if (cfg.mode === "planar") {
+      field =
+        Math.sin(this.x * 0.010 * f + t * 0.70 * sp) * 0.55 +
+        Math.sin(this.y * 0.012 * f - t * 0.51 * sp) * 0.45;
+    }
+
+    else if (cfg.mode === "spiral") {
+      const phase3 = t * 0.26 * sp;
+      const cos6Shift = this.cos6A * Math.cos(phase3) - this.sin6A * Math.sin(phase3);
+      field =
+        Math.sin(d * 0.021 * f - this.centerA * 3.0 - t * 1.18 * sp) * 0.72 +
+        cos6Shift * 0.28;
+    }
+
+    else if (cfg.mode === "hex") {
+      field =
+        Math.sin(d * 0.028 * f - t * 0.92 * sp) *
+        (0.48 + 0.52 * this.cos6A);
+    }
+
+    else if (cfg.mode === "noise") {
+      field = this.noiseValue;
+    }
+
+    else {
+      const p1 = Math.sin(this.x * 0.010 * f + t * 0.62 * sp);
+      const p2 = Math.sin(this.y * 0.012 * f - t * 0.47 * sp);
+      const radial = Math.sin(d * 0.025 * f - t * 1.03 * sp);
+
+      const phase3 = t * 0.20 * sp;
+      const triAngle = this.cos3A * Math.cos(phase3) - this.sin3A * Math.sin(phase3);
+      const tri = triAngle * Math.sin(d * 0.018 * f - t * 0.55 * sp);
+      const hex = Math.sin(d * 0.028 * f - t * 0.80 * sp) * this.cos6A;
+
+      field = p1 * 0.18 + p2 * 0.15 + radial * 0.22 + tri * 0.26 + hex * 0.19;
+    }
+
+    this.passiveTarget = field * cfg.amplitude;
+
+    // Preserve the original flow behaviour, but amortize its atan2 across frames.
+    if (cfg.flow > 0.001) {
+      this.flowTarget = Math.atan2(
+        Math.sin(this.y * 0.006 - t * 0.20 * sp),
+        Math.cos(this.x * 0.006 + t * 0.18 * sp)
+      );
+    } else {
+      this.flowTarget = 0;
+    }
+  }
+
+  update() {
+    const passiveStride = cfg.adaptiveCompute ? perfState.passiveStride : 1;
+    const noiseStride = cfg.adaptiveCompute ? perfState.noiseStride : 1;
+
+    // Noise is one of the most expensive operations. Update it sparsely and interpolate.
+    if (cfg.noiseAmt > 0 || cfg.mode === "noise") {
+      if ((frameCount + this.computePhase) % noiseStride === 0) {
+        this.noiseTarget =
+          noise(
+            fieldSeed * 0.37 + this.x * 0.0022,
+            fieldSeed * 0.73 + this.y * 0.0022,
+            t * 0.045
+          ) * 2 - 1;
+      }
+      this.noiseValue += (this.noiseTarget - this.noiseValue) * 0.16;
+    } else {
+      this.noiseValue *= 0.92;
+    }
+
+    // Stagger the normal field across cells; each cell is smoothly interpolated every frame.
+    if ((frameCount + this.computePhase) % passiveStride === 0) {
+      this.computePassiveField();
+    }
+    this.passiveField +=
+      (this.passiveTarget - this.passiveField) *
+      Math.min(0.42, 0.16 * passiveStride);
+    this.flowValue +=
+      (this.flowTarget - this.flowValue) *
+      Math.min(0.42, 0.16 * passiveStride);
+
+    // --------------------------------------------------
+    // FULL-RATE DIRECT INTERACTION
+    // --------------------------------------------------
+    let interactX = 0;
+    let interactY = 0;
+    let interactionField = 0;
+
+    // Skip all mouse math when the gesture has already decayed.
+    if (pointerState.inside && mouseEnergy > 0.004 && cfg.mouseForce > 0) {
+      const mdx = this.x - pointerState.x;
+      const mdy = this.y - pointerState.y;
+      const md2 = mdx * mdx + mdy * mdy;
+      const mouseLimit = cfg.mouseRadius * 2.7;
+
+      // Squared-distance culling avoids sqrt/exp for almost all distant cells.
+      if (md2 < mouseLimit * mouseLimit) {
+        const md = Math.sqrt(md2);
+        const q = md / Math.max(cfg.mouseRadius, 1);
+        const mouseFalloff = Math.exp(-(q * q));
+        const mouseStrength = mouseFalloff * mouseEnergy * cfg.mouseForce;
+        const invMd = 1 / Math.max(md, 1);
+        const ux = mdx * invMd;
+        const uy = mdy * invMd;
+
+        interactX += ux * mouseStrength * 18 - uy * mouseStrength * 7;
+        interactY += uy * mouseStrength * 18 + ux * mouseStrength * 7;
+        interactionField += mouseStrength * Math.sin(md * 0.050 - t * 2.0);
+      }
+    }
+
+    // Shock computation is restricted to a narrow active region around each wavefront.
+    for (const p of impulses) {
+      const sdx = this.x - p.x;
+      const sdy = this.y - p.y;
+      const pd2 = sdx * sdx + sdy * sdy;
+      const front = p.age * p.speed;
+
+      let reachMul = 4.0;
+      if (p.propagation === "echo") reachMul = 7.0;
+      if (p.propagation === "viscous") reachMul = 8.0;
+
+      const deformation = p.width * p.quirk * 0.95;
+      const margin = p.width * reachMul + deformation;
+      const minR = Math.max(0, front - margin);
+      const maxR = front + margin;
+
+      if (pd2 < minR * minR || pd2 > maxR * maxR) continue;
+
+      const pd = Math.sqrt(pd2);
+      const invPd = 1 / Math.max(pd, 1);
+      const ux = sdx * invPd;
+      const uy = sdy * invPd;
+      const delta = pd - front;
+      const w = Math.max(p.width, 1);
+      let wave = 0;
+      let envelope = 0;
+
+      if (p.propagation === "ripple") {
+        envelope = Math.exp(-Math.abs(delta) / (w * 1.35));
+        wave = envelope *
+          (Math.sin(delta / w * Math.PI * 2.6) * 0.72 +
+           Math.sin(delta / w * Math.PI * 5.2) * 0.28);
+      }
+
+      else if (p.propagation === "spiral") {
+        const theta = Math.atan2(sdy, sdx);
+        const warped = delta - Math.sin(theta * 3.0 - p.age * 2.3) * w * 0.72 * p.quirk;
+        const q = warped / w;
+        envelope = Math.exp(-(q * q));
+        wave = envelope * Math.sin(pd * 0.060 - p.age * 7.2 + theta * 2.0 * p.quirk);
+      }
+
+      else if (p.propagation === "tri") {
+        const cos3 = 4 * ux * ux * ux - 3 * ux;
+        const warped = delta - cos3 * w * 0.82 * p.quirk;
+        const q = warped / w;
+        envelope = Math.exp(-(q * q));
+        wave = envelope * Math.sin(pd * 0.066 - p.age * 7.5) * (0.62 + 0.38 * Math.abs(cos3));
+      }
+
+      else if (p.propagation === "hex") {
+        const cos3 = 4 * ux * ux * ux - 3 * ux;
+        const cos6 = 2 * cos3 * cos3 - 1;
+        const warped = delta - cos6 * w * 0.68 * p.quirk;
+        const q = warped / w;
+        envelope = Math.exp(-(q * q));
+        wave = envelope * Math.sin(pd * 0.068 - p.age * 7.8) * (0.66 + 0.34 * Math.abs(cos6));
+      }
+
+      else if (p.propagation === "directional") {
+        const dot = ux * p.dirX + uy * p.dirY;
+        const cone = Math.pow(Math.max(0, (dot + 0.22) / 1.22), 1.3 + p.quirk * 1.8);
+        const lateral = ux * (-p.dirY) + uy * p.dirX;
+        const warped = delta - lateral * w * 0.95 * p.quirk;
+        const q = warped / w;
+        envelope = Math.exp(-(q * q)) * cone;
+        wave = envelope * Math.sin(pd * 0.065 - p.age * 7.1);
+      }
+
+      else if (p.propagation === "echo") {
+        const gap = w * (2.0 + p.quirk * 0.75);
+        const q0 = delta / w;
+        const q1 = (delta + gap) / w;
+        const q2 = (delta + gap * 2.0) / w;
+        envelope =
+          Math.exp(-(q0 * q0)) +
+          Math.exp(-(q1 * q1)) * 0.58 +
+          Math.exp(-(q2 * q2)) * 0.32;
+        wave = envelope * Math.sin(pd * 0.064 - p.age * 7.0);
+      }
+
+      else if (p.propagation === "viscous") {
+        const ahead = Math.max(0, delta);
+        const behind = Math.max(0, -delta);
+        envelope =
+          Math.exp(-Math.pow(ahead / w, 2)) *
+          Math.exp(-behind / (w * (2.2 + p.quirk * 2.4)));
+        wave = envelope * Math.sin(pd * 0.052 - p.age * (5.5 - p.quirk * 0.8));
+      }
+
+      else {
+        const q = delta / w;
+        envelope = Math.exp(-(q * q));
+        wave = envelope * Math.sin(pd * 0.070 - p.age * 8.0);
+      }
+
+      const force = wave * p.power;
+      interactX += ux * force * 10;
+      interactY += uy * force * 10;
+      interactionField += force * 1.60 + envelope * p.power * 0.08;
+    }
+
+    this.pushXTarget = interactX;
+    this.pushYTarget = interactY;
+    this.interactionTarget = interactionField;
+
+    this.pushX += (this.pushXTarget - this.pushX) * 0.18;
+    this.pushY += (this.pushYTarget - this.pushY) * 0.18;
+    this.interaction += (this.interactionTarget - this.interaction) * 0.16;
+
+    const n = cfg.mode === "noise" ? 0 : this.noiseValue * cfg.noiseAmt;
+    this.target = this.passiveField + n + this.interaction * 0.85;
+    this.energy += (this.target - this.energy) * 0.10;
+
+    const flowAngle = this.flowValue;
+
+    const baseAngle = this.up ? 0 : PI;
+    const targetAngle =
+      baseAngle +
+      this.energy * cfg.rotation +
+      this.interaction * 0.34 +
+      flowAngle * cfg.flow * 0.25;
+
+    this.angle = lerpAngle(this.angle, targetAngle, 0.11);
+
+    const active = Math.min(Math.abs(this.energy), 1.7);
+    const interactionActive = Math.min(Math.abs(this.interaction), 2.0);
+    const targetScale = cfg.baseScale + active * 0.20 + interactionActive * 0.075;
+    this.scaleNow += (targetScale - this.scaleNow) * 0.11;
+  }
+
+  draw() {
+    const e = constrain(this.energy, -1.6, 1.6);
+    const ae = Math.abs(e);
+
+    const hue = cfg.hue + e * 15;
+    const sat = constrain(cfg.saturation + ae * 10, 0, 100);
+    const bri = constrain(cfg.brightness + ae * 8, 0, 100);
+
+    push();
+    translate(this.x + this.pushX, this.y + this.pushY);
+    rotate(this.angle);
+    scale(this.scaleNow);
+
+    noStroke();
+    fill(hue, sat, bri, cfg.fillAlpha + ae * 35);
+    drawTriangleShape(0.95);
+
+    if (cfg.ghosts) {
+      noFill();
+      stroke(hue - 8, max(4, sat - 8), min(100, bri + 8), 18 + ae * 26);
+      strokeWeight(0.50 / max(this.scaleNow, 0.01));
+      drawTriangleShape(1.18);
+    }
+
+    noFill();
+    stroke(hue + 3, sat * 0.78, min(100, bri + 8), cfg.lineAlpha + ae * 45);
+    strokeWeight(0.80 / max(this.scaleNow, 0.01));
+    drawTriangleShape(1.00);
+
+    if (ae > 0.36) {
+      stroke(hue - 5, max(5, sat - 5), min(100, bri + 12), 18 + ae * 46);
+      strokeWeight(0.40 / max(this.scaleNow, 0.01));
+      drawTriangleShape(0.72);
+    }
+
+    pop();
+  }
+}
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  pixelDensity(Math.min(window.devicePixelRatio || 1, 1.5)); // cap high-DPI cost while retaining crisp lines
+  colorMode(HSB, 360, 100, 100, 255);
+
+  bindUI();
+  bindPointerInput();
+  applyPreset("quiet");
+
+  noiseSeed(floor(random(1e9)));
+  fieldSeed = random(1000);
+
+  rebuild();
+}
+
+function bindUI() {
+  const ids = [
+    "size","overlap","apex","triWidth","baseScale","rotation",
+    "mode","amplitude","speed","frequency","noiseAmt","flow",
+    "mouseForce","mouseRadius","shockInitial","shockPropagation","shockQuirk",
+    "shockPower","shockSpeed","shockWidth",
+    "hue","saturation","brightness","lineAlpha","fillAlpha",
+    "ghosts","connections","macro","bgBreathing","adaptiveCompute"
+  ];
+
+  for (const id of ids) controls[id] = document.getElementById(id);
+
+  document.getElementById("preset").addEventListener("change", e => applyPreset(e.target.value));
+  document.getElementById("randomize").addEventListener("click", randomizeControls);
+  document.getElementById("reset").addEventListener("click", () => {
+    noiseSeed(floor(random(1e9)));
+    fieldSeed = random(1000);
+    rebuild();
+  });
+
+  for (const [id, el] of Object.entries(controls)) {
+    el.addEventListener("input", () => {
+      readControls();
+      if (["size","overlap"].includes(id)) rebuild();
+      updateOutputs();
+    });
+  }
+}
+
+function applyPreset(name) {
+  const p = presets[name];
+  if (!p) return;
+
+  for (const [key, value] of Object.entries(p)) {
+    const el = controls[key];
+    if (!el) continue;
+    if (el.type === "checkbox") el.checked = value;
+    else el.value = value;
+  }
+
+  document.getElementById("preset").value = name;
+  readControls();
+  updateOutputs();
+  rebuild();
+}
+
+function readControls() {
+  cfg = {
+    size: +controls.size.value,
+    overlap: +controls.overlap.value,
+    apex: +controls.apex.value,
+    triWidth: +controls.triWidth.value,
+    baseScale: +controls.baseScale.value,
+    rotation: +controls.rotation.value,
+
+    mode: controls.mode.value,
+    amplitude: +controls.amplitude.value,
+    speed: +controls.speed.value,
+    frequency: +controls.frequency.value,
+    noiseAmt: +controls.noiseAmt.value,
+    flow: +controls.flow.value,
+
+    mouseForce: +controls.mouseForce.value,
+    mouseRadius: +controls.mouseRadius.value,
+    shockInitial: controls.shockInitial.value,
+    shockPropagation: controls.shockPropagation.value,
+    shockQuirk: +controls.shockQuirk.value,
+    shockPower: +controls.shockPower.value,
+    shockSpeed: +controls.shockSpeed.value,
+    shockWidth: +controls.shockWidth.value,
+
+    hue: +controls.hue.value,
+    saturation: +controls.saturation.value,
+    brightness: +controls.brightness.value,
+    lineAlpha: +controls.lineAlpha.value,
+    fillAlpha: +controls.fillAlpha.value,
+
+    ghosts: controls.ghosts.checked,
+    connections: controls.connections.checked,
+    macro: controls.macro.checked,
+    bgBreathing: controls.bgBreathing.checked,
+    adaptiveCompute: controls.adaptiveCompute.checked
+  };
+}
+
+function updateOutputs() {
+  const pairs = {
+    size: cfg.size,
+    overlap: cfg.overlap.toFixed(2),
+    apex: cfg.apex.toFixed(2),
+    triWidth: cfg.triWidth.toFixed(2),
+    baseScale: cfg.baseScale.toFixed(2),
+    rotation: cfg.rotation.toFixed(2),
+
+    amplitude: cfg.amplitude.toFixed(2),
+    speed: cfg.speed.toFixed(2),
+    frequency: cfg.frequency.toFixed(2),
+    noiseAmt: cfg.noiseAmt.toFixed(2),
+    flow: cfg.flow.toFixed(2),
+
+    mouseForce: cfg.mouseForce.toFixed(2),
+    mouseRadius: cfg.mouseRadius,
+    shockQuirk: cfg.shockQuirk.toFixed(2),
+    shockPower: cfg.shockPower.toFixed(2),
+    shockSpeed: cfg.shockSpeed,
+    shockWidth: cfg.shockWidth,
+
+    hue: cfg.hue,
+    saturation: cfg.saturation,
+    brightness: cfg.brightness,
+    lineAlpha: cfg.lineAlpha,
+    fillAlpha: cfg.fillAlpha
+  };
+
+  for (const [id, value] of Object.entries(pairs)) {
+    const out = document.getElementById(id + "Out");
+    if (out) out.textContent = value;
+  }
+}
+
+function randomizeControls() {
+  controls.size.value = floor(random(24, 49));
+  controls.overlap.value = random(0.92, 1.48).toFixed(2);
+  controls.apex.value = random(0.62, 1.48).toFixed(2);
+  controls.triWidth.value = random(0.72, 1.32).toFixed(2);
+  controls.baseScale.value = random(0.46, 0.86).toFixed(2);
+  controls.rotation.value = random(0.12, 1.18).toFixed(2);
+
+  controls.mode.value = random(["mixed","radial","planar","spiral","hex","noise"]);
+  controls.amplitude.value = random(0.22, 1.15).toFixed(2);
+  controls.speed.value = random(0.20, 1.55).toFixed(2);
+  controls.frequency.value = random(0.55, 1.95).toFixed(2);
+  controls.noiseAmt.value = random(0.02, 0.52).toFixed(2);
+  controls.flow.value = random(0.04, 0.62).toFixed(2);
+
+  controls.mouseForce.value = random(0.7, 2.4).toFixed(2);
+  controls.mouseRadius.value = floor(random(90, 250));
+  controls.shockInitial.value = random(["burst","implode","twist","shear","pinch","fracture"]);
+  controls.shockPropagation.value = random(["ring","ripple","spiral","tri","hex","directional","echo","viscous"]);
+  controls.shockQuirk.value = random(0.15, 1.55).toFixed(2);
+  controls.shockPower.value = random(1.2, 3.8).toFixed(2);
+  controls.shockSpeed.value = floor(random(130, 360));
+  controls.shockWidth.value = floor(random(45, 125));
+
+  controls.hue.value = floor(random(185, 285));
+  controls.saturation.value = floor(random(10, 55));
+  controls.brightness.value = floor(random(62, 96));
+  controls.lineAlpha.value = floor(random(80, 185));
+  controls.fillAlpha.value = floor(random(18, 80));
+
+  controls.ghosts.checked = random() > 0.18;
+  controls.connections.checked = random() > 0.35;
+  controls.macro.checked = random() > 0.35;
+  controls.bgBreathing.checked = random() > 0.28;
+  controls.adaptiveCompute.checked = true;
+
+  document.getElementById("preset").value = "quiet";
+  readControls();
+  updateOutputs();
+
+  noiseSeed(floor(random(1e9)));
+  fieldSeed = random(1000);
+  rebuild();
+}
+
+function rebuild() {
+  cells = [];
+
+  const side = cfg.size || 35;
+  const h = side * Math.sqrt(3) / 2;
+
+  // larger overlap value => tighter spacing
+  const xStep = side * 0.50 / cfg.overlap;
+  const yStep = h / cfg.overlap;
+
+  const marginPx = 125;
+  const colStart = floor(-marginPx / xStep) - 1;
+  const colEnd = ceil((width + marginPx) / xStep) + 1;
+  const rowStart = floor(-marginPx / yStep) - 1;
+  const rowEnd = ceil((height + marginPx) / yStep) + 1;
+
+  for (let row = rowStart; row <= rowEnd; row++) {
+    for (let col = colStart; col <= colEnd; col++) {
+      const up = ((row + col) & 1) === 0;
+
+      const x = col * xStep;
+      const y =
+        row * yStep +
+        (up ? h * 0.28 / cfg.overlap : h * 0.56 / cfg.overlap);
+
+      cells.push(new Cell(x, y, up, col, row));
+    }
+  }
+}
+
+function draw() {
+  t = millis() / 1000;
+
+  // Smooth frame-time estimate; only computational sampling changes, never draw rate.
+  perfState.avgDt = perfState.avgDt * 0.94 + Math.min(deltaTime, 80) * 0.06;
+
+  if (cfg.adaptiveCompute && frameCount % 90 === 0) {
+    if (perfState.avgDt > 30) perfState.passiveStride = 4;
+    else if (perfState.avgDt > 21) perfState.passiveStride = 3;
+    else perfState.passiveStride = 2;
+    perfState.noiseStride = perfState.passiveStride * 3;
+  } else if (!cfg.adaptiveCompute) {
+    perfState.passiveStride = 1;
+    perfState.noiseStride = 1;
+  }
+
+  if (frameCount - perfState.lastLabelFrame > 30) {
+    const label = document.getElementById("perfReadout");
+    if (label) {
+      const fps = Math.min(999, 1000 / Math.max(perfState.avgDt, 1));
+      label.textContent = `${fps.toFixed(0)} fps · field 1/${perfState.passiveStride}`;
+    }
+    perfState.lastLabelFrame = frameCount;
+  }
+
+  drawBackground();
+
+  const pointerKick = constrain(pointerState.motion * 0.060, 0, 2.2);
+  if (pointerKick > mouseEnergy) mouseEnergy = lerp(mouseEnergy, pointerKick, 0.42);
+  else mouseEnergy = lerp(mouseEnergy, 0, 0.045);
+  pointerState.motion *= 0.68;
+
+  updateImpulses();
+
+  if (cfg.macro) drawMacroGeometry();
+
+  for (const c of cells) {
+    c.update();
+    c.draw();
+  }
+
+  if (cfg.connections) drawConnections();
+  drawVignette();
+}
+
+function drawBackground() {
+  let mood = 0;
+
+  if (cfg.bgBreathing) {
+    mood =
+      sin(t * 0.065) * 0.55 +
+      sin(t * 0.021 + 1.7) * 0.32;
+  }
+
+  background(
+    cfg.hue + 10 + mood * 5,
+    26 + cfg.saturation * 0.12,
+    6.0 + mood * 0.7
+  );
+
+  push();
+  noStroke();
+
+  const cx = width * 0.5;
+  const cy = height * 0.5;
+  const r = min(width, height) * 0.72;
+
+  for (let i = 6; i >= 1; i--) {
+    fill(cfg.hue, 12, 18, 2.2);
+    ellipse(cx, cy, r * 2 * i/6, r * 2 * i/6);
+  }
+
+  pop();
+}
+
+function drawMacroGeometry() {
+  push();
+  translate(width * 0.5, height * 0.5);
+
+  const base = min(width, height) * 0.15;
+  noFill();
+
+  for (let layer = 0; layer < 4; layer++) {
+    push();
+    rotate(
+      (layer % 2 ? -1 : 1) *
+      t *
+      0.010 *
+      max(cfg.speed, 0.15) *
+      (1 + layer * 0.15)
+    );
+
+    stroke(
+      cfg.hue + layer * 5,
+      max(5, cfg.saturation - 10),
+      min(100, cfg.brightness + 8),
+      14 - layer * 2
+    );
+
+    strokeWeight(0.8);
+
+    const r = base * (1 + layer * 0.52);
+
+    beginShape();
+    for (let i = 0; i < 3; i++) {
+      const a = -HALF_PI + i * TWO_PI / 3;
+      vertex(cos(a) * r, sin(a) * r);
+    }
+    endShape(CLOSE);
+
+    pop();
+  }
+
+  pop();
+}
+
+function drawConnections() {
+  push();
+  strokeWeight(0.5);
+
+  const stride = max(3, floor(7 - cfg.overlap * 2));
+
+  for (let i = 0; i < cells.length; i += stride) {
+    const c = cells[i];
+    const ae = abs(c.energy);
+
+    if (ae < 0.72) continue;
+
+    const len = 10 + ae * 15;
+    const a = c.angle + (((c.gx + c.gy) & 1) ? PI/3 : -PI/3);
+
+    stroke(
+      cfg.hue + c.energy * 8,
+      max(5, cfg.saturation - 5),
+      min(100, cfg.brightness + 10),
+      10 + ae * 28
+    );
+
+    line(
+      c.x,
+      c.y,
+      c.x + cos(a) * len,
+      c.y + sin(a) * len
+    );
+  }
+
+  pop();
+}
+
+function drawTriangleShape(scaleFactor) {
+  const side = cfg.size;
+  const h = side * Math.sqrt(3) / 2;
+
+  const halfW = side * 0.5 * cfg.triWidth * scaleFactor;
+  const topY = -h * 0.67 * cfg.apex * scaleFactor;
+  const baseY =  h * 0.33 * scaleFactor;
+
+  triangle(
+    0, topY,
+    -halfW, baseY,
+     halfW, baseY
+  );
+}
+
+function emitImpulse(x, y, multiplier = 1.0) {
+  let dirX = pointerState.vx;
+  let dirY = pointerState.vy;
+  let mag = Math.sqrt(dirX * dirX + dirY * dirY);
+
+  // If the pointer was stationary, use the click's direction from the screen centre.
+  if (mag < 0.5) {
+    dirX = x - width * 0.5;
+    dirY = y - height * 0.5;
+    mag = Math.sqrt(dirX * dirX + dirY * dirY);
+  }
+  if (mag < 0.5) {
+    dirX = 1;
+    dirY = 0;
+    mag = 1;
+  }
+  dirX /= mag;
+  dirY /= mag;
+
+  const p = {
+    id: ++impulseId,
+    x,
+    y,
+    age: 0,
+    power: cfg.shockPower * multiplier,
+    speed: cfg.shockSpeed,
+    width: cfg.shockWidth,
+    initial: cfg.shockInitial,
+    propagation: cfg.shockPropagation,
+    quirk: cfg.shockQuirk,
+    dirX,
+    dirY
+  };
+
+  impulses.push(p);
+  applyInitialShock(p);
+}
+
+function applyInitialShock(p) {
+  const radius = p.width * (1.65 + p.quirk * 0.35);
+  const radius2 = radius * radius;
+
+  for (const c of cells) {
+    const dx = c.x - p.x;
+    const dy = c.y - p.y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > radius2) continue;
+
+    const d = Math.sqrt(d2);
+    const invD = 1 / Math.max(d, 1);
+    const ux = dx * invD;
+    const uy = dy * invD;
+    const q = d / Math.max(radius, 1);
+    const falloff = Math.exp(-(q * q) * 2.4);
+    const kick = falloff * p.power * 5.0;
+
+    if (p.initial === "implode") {
+      c.pushX -= ux * kick;
+      c.pushY -= uy * kick;
+      c.interaction -= falloff * p.power * 0.62;
+    }
+
+    else if (p.initial === "twist") {
+      c.pushX += -uy * kick * 1.25;
+      c.pushY +=  ux * kick * 1.25;
+      c.interaction += falloff * p.power * 0.52 * (c.up ? 1 : -1);
+      c.angle += falloff * p.power * 0.055;
+    }
+
+    else if (p.initial === "shear") {
+      const nx = -p.dirY;
+      const ny =  p.dirX;
+      const side = (dx * nx + dy * ny) >= 0 ? 1 : -1;
+      c.pushX += nx * kick * side * 1.15;
+      c.pushY += ny * kick * side * 1.15;
+      c.interaction += side * falloff * p.power * 0.34;
+    }
+
+    else if (p.initial === "pinch") {
+      c.pushX -= ux * kick * 0.28;
+      c.pushY -= uy * kick * 0.28;
+      c.interaction += falloff * p.power * 1.05;
+      c.angle += (c.up ? 1 : -1) * falloff * p.power * 0.085;
+      c.scaleNow += falloff * p.power * 0.018;
+    }
+
+    else if (p.initial === "fracture") {
+      const r = Math.sin(c.seed * 12.9898 + p.id * 78.233) * 43758.5453;
+      const rr = r - Math.floor(r);
+      const a = rr * Math.PI * 2;
+      c.pushX += Math.cos(a) * kick * 1.18;
+      c.pushY += Math.sin(a) * kick * 1.18;
+      c.interaction += (rr - 0.5) * falloff * p.power * 1.25;
+    }
+
+    else {
+      // Burst
+      c.pushX += ux * kick;
+      c.pushY += uy * kick;
+      c.interaction += falloff * p.power * 0.58;
+    }
+  }
+}
+
+function updateImpulses() {
+  for (let i = impulses.length - 1; i >= 0; i--) {
+    const p = impulses[i];
+    p.age += deltaTime / 1000;
+    p.power *= 0.991;
+
+    if (p.age > 6.5 || p.power < 0.025) impulses.splice(i, 1);
+  }
+}
+
+function bindPointerInput() {
+  const canvasEl = document.querySelector('canvas');
+
+  const setPointer = (e) => {
+    // Canvas fills the viewport, but use the actual rect so this remains
+    // correct if the page is later embedded or styled differently.
+    const rect = canvasEl.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (pointerState.inside) {
+      const dx = x - pointerState.x;
+      const dy = y - pointerState.y;
+      const m = Math.sqrt(dx * dx + dy * dy);
+      pointerState.motion += m;
+      pointerState.vx = pointerState.vx * 0.72 + dx * 0.28;
+      pointerState.vy = pointerState.vy * 0.72 + dy * 0.28;
+    }
+
+    pointerState.px = pointerState.x;
+    pointerState.py = pointerState.y;
+    pointerState.x = x;
+    pointerState.y = y;
+    pointerState.inside = true;
+  };
+
+  canvasEl.style.touchAction = 'none';
+
+  canvasEl.addEventListener('pointermove', (e) => {
+    setPointer(e);
+  }, { passive: true });
+
+  canvasEl.addEventListener('pointerdown', (e) => {
+    setPointer(e);
+    emitImpulse(pointerState.x, pointerState.y, 1.0);
+  });
+
+  canvasEl.addEventListener('pointerleave', () => {
+    pointerState.inside = false;
+    pointerState.vx *= 0.5;
+    pointerState.vy *= 0.5;
+  });
+
+  window.addEventListener('blur', () => {
+    pointerState.inside = false;
+  });
+}
+
+function drawVignette() {
+  // Subtle dark framing. This function was accidentally missing in the
+  // earlier SYNTH builds, which caused draw() to throw on its first frame.
+  push();
+  noFill();
+
+  const layers = 7;
+  for (let i = 0; i < layers; i++) {
+    const inset = i * 5;
+    stroke(
+      cfg.hue + 8,
+      28,
+      3.0,
+      3 + i * 1.8
+    );
+    strokeWeight(10);
+    rect(
+      inset,
+      inset,
+      width - inset * 2,
+      height - inset * 2
+    );
+  }
+
+  pop();
+}
+
+function keyPressed() {
+  if (key === ' ') {
+    emitImpulse(width * 0.5, height * 0.5, 1.55);
+    return false;
+  }
+
+  if (key === 'r' || key === 'R') {
+    noiseSeed(floor(random(1e9)));
+    fieldSeed = random(1000);
+    rebuild();
+  }
+
+  if (key === 'p' || key === 'P') {
+    document.getElementById("panel").classList.toggle("hidden");
+  }
+
+  if (key === 's' || key === 'S') {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    saveCanvas(`triangular-field-synth-${stamp}`, 'png');
+  }
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  rebuild();
+}
+
+function lerpAngle(a, b, amt) {
+  const d = (b - a + PI) % TWO_PI - PI;
+  return a + d * amt;
+}
+</script>
+</body>
+</html>
